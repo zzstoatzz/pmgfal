@@ -17,7 +17,7 @@ uv add pmgfal
 uvx pmgfal
 
 # explicit paths
-uvx pmgfal ./lexicons -o ./src/models
+uvx pmgfal ./lexicons -o ./src/atproto
 
 # filter by namespace
 uvx pmgfal -p fm.plyr
@@ -31,8 +31,7 @@ uvx pmgfal --no-cache
 pmgfal caches generated models based on a hash of your lexicon files. on subsequent runs with unchanged lexicons, it copies from cache instead of regenerating.
 
 cache location:
-- macos: `~/Library/Caches/pmgfal/`
-- linux: `~/.cache/pmgfal/`
+- unix (linux/macos/bsd): `~/.cache/pmgfal/` (or `$XDG_CACHE_HOME/pmgfal/`)
 - windows: `%LOCALAPPDATA%/pmgfal/`
 
 the cache key includes:
@@ -72,7 +71,7 @@ your-project/
 │           ├── like.json
 │           └── comment.json
 ├── src/
-│   └── models/
+│   └── atproto/
 │       └── .gitkeep
 └── pyproject.toml
 ```
@@ -80,13 +79,13 @@ your-project/
 ### 2. generate models
 
 ```bash
-uvx pmgfal ./lexicons -o ./src/models -p fm.plyr
+uvx pmgfal ./lexicons -o ./src/atproto -p fm.plyr
 ```
 
 ### 3. use in your code
 
 ```python
-from your_project.models import FmPlyrTrack, FmPlyrLike
+from your_project.atproto import FmPlyrTrack, FmPlyrLike
 
 track = FmPlyrTrack(
     uri="at://did:plc:xyz/fm.plyr.track/123",
@@ -106,7 +105,7 @@ repos:
     hooks:
       - id: pmgfal
         name: generate atproto models
-        entry: uvx pmgfal ./lexicons -o ./src/models -p fm.plyr
+        entry: uvx pmgfal ./lexicons -o ./src/atproto -p fm.plyr
         language: system
         files: ^lexicons/.*\.json$
         pass_filenames: false
@@ -117,7 +116,7 @@ repos:
 ```just
 # justfile
 generate:
-    uvx pmgfal ./lexicons -o ./src/models -p fm.plyr
+    uvx pmgfal ./lexicons -o ./src/atproto -p fm.plyr
 ```
 
 **option c: github actions**
@@ -125,7 +124,7 @@ generate:
 ```yaml
 # .github/workflows/ci.yml
 - name: generate models
-  run: uvx pmgfal ./lexicons -o ./src/models -p fm.plyr
+  run: uvx pmgfal ./lexicons -o ./src/atproto -p fm.plyr
 ```
 
 caching ensures regeneration is fast (~0.3s for 300 lexicons) when files haven't changed.
