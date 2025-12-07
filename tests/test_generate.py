@@ -251,3 +251,72 @@ class TestGenerate:
             assert "class ComAtprotoRepoStrongRef(BaseModel):" in content
             assert "uri: str" in content
             assert "cid: str" in content
+
+
+class TestCaching:
+    """test caching behavior."""
+
+    def test_cache_hit(self):
+        """second run should hit cache."""
+        from pmgfal import main
+
+        lexicon = {
+            "lexicon": 1,
+            "id": "test.cache",
+            "defs": {
+                "main": {
+                    "type": "record",
+                    "record": {"type": "object", "properties": {"x": {"type": "string"}}},
+                }
+            },
+        }
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            lexicon_dir = Path(tmpdir) / "lexicons"
+            lexicon_dir.mkdir()
+            (lexicon_dir / "cache.json").write_text(json.dumps(lexicon))
+
+            output_dir = Path(tmpdir) / "generated"
+
+            # first run - cache miss
+            result = main([str(lexicon_dir), "-o", str(output_dir)])
+            assert result == 0
+            assert (output_dir / "models.py").exists()
+
+            # delete output to prove cache works
+            (output_dir / "models.py").unlink()
+
+            # second run - cache hit
+            result = main([str(lexicon_dir), "-o", str(output_dir)])
+            assert result == 0
+            assert (output_dir / "models.py").exists()
+
+    def test_no_cache_flag(self):
+        """--no-cache should force regeneration."""
+        from pmgfal import main
+
+        lexicon = {
+            "lexicon": 1,
+            "id": "test.nocache",
+            "defs": {
+                "main": {
+                    "type": "record",
+                    "record": {"type": "object", "properties": {"y": {"type": "string"}}},
+                }
+            },
+        }
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            lexicon_dir = Path(tmpdir) / "lexicons"
+            lexicon_dir.mkdir()
+            (lexicon_dir / "nocache.json").write_text(json.dumps(lexicon))
+
+            output_dir = Path(tmpdir) / "generated"
+
+            # first run
+            result = main([str(lexicon_dir), "-o", str(output_dir)])
+            assert result == 0
+
+            # second run with --no-cache
+            result = main([str(lexicon_dir), "-o", str(output_dir), "--no-cache"])
+            assert result == 0
