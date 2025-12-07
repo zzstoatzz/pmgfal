@@ -5,12 +5,14 @@ from __future__ import annotations
 import argparse
 import os
 import shutil
+import subprocess
 import sys
+import tempfile
 from pathlib import Path
 
 from pmgfal._pmgfal import __version__, generate, hash_lexicons
 
-__all__ = ["__version__", "generate", "hash_lexicons", "main", "get_cache_dir"]
+__all__ = ["__version__", "generate", "get_cache_dir", "hash_lexicons", "main"]
 
 
 def get_cache_dir() -> Path:
@@ -24,6 +26,11 @@ def get_cache_dir() -> Path:
     return base / "pmgfal"
 
 
+def is_git_url(path: str) -> bool:
+    """check if path looks like a git url."""
+    return path.startswith(("https://", "git@", "ssh://", "git://"))
+
+
 def main(args: list[str] | None = None) -> int:
     """cli entry point."""
     parser = argparse.ArgumentParser(
@@ -31,10 +38,9 @@ def main(args: list[str] | None = None) -> int:
         description="pydantic model generator for atproto lexicons",
     )
     parser.add_argument(
-        "lexicon_dir",
+        "lexicon_source",
         nargs="?",
-        type=Path,
-        help="directory containing lexicon json files (default: ./lexicons or .)",
+        help="directory or git url containing lexicon json files (default: ./lexicons or .)",
     )
     parser.add_argument(
         "-o",
@@ -64,20 +70,37 @@ def main(args: list[str] | None = None) -> int:
 
     parsed = parser.parse_args(args)
 
-    # auto-detect lexicon directory
-    if parsed.lexicon_dir is None:
-        if Path("./lexicons").is_dir():
-            lexicon_dir = Path("./lexicons")
-        else:
-            lexicon_dir = Path(".")
-    else:
-        lexicon_dir = parsed.lexicon_dir
-
-    if not lexicon_dir.is_dir():
-        print(f"error: not a directory: {lexicon_dir}", file=sys.stderr)
-        return 1
-
+    temp_dir = None
     try:
+        # handle git urls by cloning to temp dir
+        if parsed.lexicon_source and is_git_url(parsed.lexicon_source):
+            temp_dir = tempfile.mkdtemp(prefix="pmgfal-")
+            print(f"cloning {parsed.lexicon_source}...")
+            result = subprocess.run(
+                ["git", "clone", "--depth=1", parsed.lexicon_source, temp_dir],
+                capture_output=True,
+                text=True,
+            )
+            if result.returncode != 0:
+                print(f"error: git clone failed: {result.stderr}", file=sys.stderr)
+                return 1
+            # look for lexicons subdir in cloned repo
+            if (Path(temp_dir) / "lexicons").is_dir():
+                lexicon_dir = Path(temp_dir) / "lexicons"
+            else:
+                lexicon_dir = Path(temp_dir)
+        # auto-detect lexicon directory
+        elif parsed.lexicon_source is None:
+            if Path("./lexicons").is_dir():
+                lexicon_dir = Path("./lexicons")
+            else:
+                lexicon_dir = Path(".")
+        else:
+            lexicon_dir = Path(parsed.lexicon_source)
+
+        if not lexicon_dir.is_dir():
+            print(f"error: not a directory: {lexicon_dir}", file=sys.stderr)
+            return 1
         # compute hash of lexicons (in rust)
         lexicon_hash = hash_lexicons(str(lexicon_dir), parsed.prefix)
         cache_dir = get_cache_dir() / lexicon_hash
@@ -114,6 +137,9 @@ def main(args: list[str] | None = None) -> int:
     except Exception as e:
         print(f"error: {e}", file=sys.stderr)
         return 1
+    finally:
+        if temp_dir and Path(temp_dir).exists():
+            shutil.rmtree(temp_dir)
 
 
 if __name__ == "__main__":

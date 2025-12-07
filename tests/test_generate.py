@@ -266,7 +266,10 @@ class TestCaching:
             "defs": {
                 "main": {
                     "type": "record",
-                    "record": {"type": "object", "properties": {"x": {"type": "string"}}},
+                    "record": {
+                        "type": "object",
+                        "properties": {"x": {"type": "string"}},
+                    },
                 }
             },
         }
@@ -301,7 +304,10 @@ class TestCaching:
             "defs": {
                 "main": {
                     "type": "record",
-                    "record": {"type": "object", "properties": {"y": {"type": "string"}}},
+                    "record": {
+                        "type": "object",
+                        "properties": {"y": {"type": "string"}},
+                    },
                 }
             },
         }
