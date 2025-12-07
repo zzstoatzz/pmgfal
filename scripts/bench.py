@@ -13,7 +13,13 @@ def bench_atproto():
         # clone atproto
         print("cloning atproto lexicons...")
         subprocess.run(
-            ["git", "clone", "--depth=1", "https://github.com/bluesky-social/atproto.git", tmp],
+            [
+                "git",
+                "clone",
+                "--depth=1",
+                "https://github.com/bluesky-social/atproto.git",
+                tmp,
+            ],
             capture_output=True,
             check=True,
         )
@@ -27,7 +33,15 @@ def bench_atproto():
         # benchmark generation (cold)
         start = time.perf_counter()
         subprocess.run(
-            ["uv", "run", "pmgfal", str(lexicon_dir), "-o", str(output_dir), "--no-cache"],
+            [
+                "uv",
+                "run",
+                "pmgfal",
+                str(lexicon_dir),
+                "-o",
+                str(output_dir),
+                "--no-cache",
+            ],
             check=True,
         )
         cold_time = time.perf_counter() - start
@@ -44,7 +58,7 @@ def bench_atproto():
         )
         cache_time = time.perf_counter() - start
 
-        print(f"\nresults:")
+        print("\nresults:")
         print(f"  lexicons: {len(json_files)}")
         print(f"  output: {lines} lines")
         print(f"  cold generation: {cold_time:.3f}s")

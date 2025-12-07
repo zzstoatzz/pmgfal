@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -13,6 +14,58 @@ from pathlib import Path
 from pmgfal._pmgfal import __version__, generate, hash_lexicons
 
 __all__ = ["__version__", "generate", "get_cache_dir", "hash_lexicons", "main"]
+
+# ansi color codes
+_RESET = "\033[0m"
+_DIM = "\033[2m"
+_CYAN = "\033[36m"
+_YELLOW = "\033[33m"
+_GREEN = "\033[32m"
+_RED = "\033[31m"
+
+# git provider templates (tried in order)
+GIT_PROVIDERS = [
+    ("github", "https://github.com/{}.git"),
+    ("tangled", "https://tangled.sh/{}.git"),
+]
+
+
+def _supports_color() -> bool:
+    """check if terminal supports color."""
+    if os.environ.get("NO_COLOR"):
+        return False
+    if not hasattr(sys.stdout, "isatty"):
+        return False
+    return sys.stdout.isatty()
+
+
+def _log(msg: str, color: str = "", dim: bool = False) -> None:
+    """print a log message with optional color."""
+    if _supports_color():
+        prefix = _DIM if dim else ""
+        print(f"{prefix}{color}{msg}{_RESET}")
+    else:
+        print(msg)
+
+
+def _log_info(msg: str) -> None:
+    _log(msg, _CYAN)
+
+
+def _log_warn(msg: str) -> None:
+    _log(msg, _YELLOW)
+
+
+def _log_success(msg: str) -> None:
+    _log(msg, _GREEN)
+
+
+def _log_error(msg: str) -> None:
+    _log(msg, _RED)
+
+
+def _log_dim(msg: str) -> None:
+    _log(msg, dim=True)
 
 
 def get_cache_dir() -> Path:
@@ -31,6 +84,48 @@ def is_git_url(path: str) -> bool:
     return path.startswith(("https://", "git@", "ssh://", "git://"))
 
 
+def is_shorthand(path: str) -> bool:
+    """check if path looks like owner/repo shorthand."""
+    return bool(re.match(r"^[\w.-]+/[\w.-]+$", path))
+
+
+def clone_repo(source: str, dest: str) -> tuple[bool, str]:
+    """clone a git repo, returns (success, url_used)."""
+    if is_git_url(source):
+        # full url - just try it
+        _log_info(f"cloning {source}...")
+        result = subprocess.run(
+            ["git", "clone", "--depth=1", source, dest],
+            capture_output=True,
+            text=True,
+        )
+        return result.returncode == 0, source
+
+    if is_shorthand(source):
+        # try providers in order
+        for provider_name, url_template in GIT_PROVIDERS:
+            url = url_template.format(source)
+            _log_info(f"trying {provider_name}: {url}")
+            result = subprocess.run(
+                ["git", "clone", "--depth=1", url, dest],
+                capture_output=True,
+                text=True,
+            )
+            if result.returncode == 0:
+                return True, url
+            _log_dim(f"  not found on {provider_name}")
+            # clean up failed clone attempt
+            if Path(dest).exists():
+                shutil.rmtree(dest)
+
+        _log_error(f"could not find '{source}' on any provider")
+        _log_error("tried: " + ", ".join(name for name, _ in GIT_PROVIDERS))
+        _log_error("use a full git url instead")
+        return False, ""
+
+    return False, ""
+
+
 def main(args: list[str] | None = None) -> int:
     """cli entry point."""
     parser = argparse.ArgumentParser(
@@ -40,7 +135,7 @@ def main(args: list[str] | None = None) -> int:
     parser.add_argument(
         "lexicon_source",
         nargs="?",
-        help="directory or git url containing lexicon json files (default: ./lexicons or .)",
+        help="directory, git url, or owner/repo shorthand (default: ./lexicons or .)",
     )
     parser.add_argument(
         "-o",
@@ -72,17 +167,13 @@ def main(args: list[str] | None = None) -> int:
 
     temp_dir = None
     try:
-        # handle git urls by cloning to temp dir
-        if parsed.lexicon_source and is_git_url(parsed.lexicon_source):
+        source = parsed.lexicon_source
+
+        # handle git urls or shorthand by cloning to temp dir
+        if source and (is_git_url(source) or is_shorthand(source)):
             temp_dir = tempfile.mkdtemp(prefix="pmgfal-")
-            print(f"cloning {parsed.lexicon_source}...")
-            result = subprocess.run(
-                ["git", "clone", "--depth=1", parsed.lexicon_source, temp_dir],
-                capture_output=True,
-                text=True,
-            )
-            if result.returncode != 0:
-                print(f"error: git clone failed: {result.stderr}", file=sys.stderr)
+            success, _ = clone_repo(source, temp_dir)
+            if not success:
                 return 1
             # look for lexicons subdir in cloned repo
             if (Path(temp_dir) / "lexicons").is_dir():
@@ -90,16 +181,16 @@ def main(args: list[str] | None = None) -> int:
             else:
                 lexicon_dir = Path(temp_dir)
         # auto-detect lexicon directory
-        elif parsed.lexicon_source is None:
+        elif source is None:
             if Path("./lexicons").is_dir():
                 lexicon_dir = Path("./lexicons")
             else:
                 lexicon_dir = Path(".")
         else:
-            lexicon_dir = Path(parsed.lexicon_source)
+            lexicon_dir = Path(source)
 
         if not lexicon_dir.is_dir():
-            print(f"error: not a directory: {lexicon_dir}", file=sys.stderr)
+            _log_error(f"not a directory: {lexicon_dir}")
             return 1
         # compute hash of lexicons (in rust)
         lexicon_hash = hash_lexicons(str(lexicon_dir), parsed.prefix)
@@ -113,9 +204,11 @@ def main(args: list[str] | None = None) -> int:
             for cached in cached_files:
                 dest = parsed.output / cached.name
                 shutil.copy2(cached, dest)
-            print(f"cache hit ({lexicon_hash}) - copied {len(cached_files)} file(s):")
+            _log_success(
+                f"cache hit ({lexicon_hash}) - copied {len(cached_files)} file(s):"
+            )
             for f in cached_files:
-                print(f"  {parsed.output / f.name}")
+                _log_dim(f"  {parsed.output / f.name}")
             return 0
 
         # cache miss - generate
@@ -130,12 +223,12 @@ def main(args: list[str] | None = None) -> int:
         for f in files:
             shutil.copy2(f, cache_dir / Path(f).name)
 
-        print(f"generated {len(files)} file(s) (cached as {lexicon_hash}):")
+        _log_success(f"generated {len(files)} file(s) (cached as {lexicon_hash}):")
         for f in files:
-            print(f"  {f}")
+            _log_dim(f"  {f}")
         return 0
     except Exception as e:
-        print(f"error: {e}", file=sys.stderr)
+        _log_error(f"error: {e}")
         return 1
     finally:
         if temp_dir and Path(temp_dir).exists():
