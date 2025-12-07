@@ -22,7 +22,7 @@ fmt:
 
 # benchmark on atproto lexicons
 bench: dev
-    uv run python bench.py
+    ./scripts/bench.py
 
 # clean build artifacts
 clean:
