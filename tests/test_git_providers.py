@@ -78,3 +78,46 @@ def test_invalid_source_not_directory() -> None:
     assert result.returncode == 1
     output = result.stdout + result.stderr
     assert "not a directory" in output
+
+
+def test_plyr_fm_generates_valid_models() -> None:
+    """test that plyr.fm lexicons generate importable pydantic models."""
+    with tempfile.TemporaryDirectory() as tmp:
+        output_dir = Path(tmp) / "output"
+
+        # generate models from plyr.fm
+        result = subprocess.run(
+            [
+                "uv",
+                "run",
+                "pmgfal",
+                "zzstoatzz.io/plyr.fm",
+                "-o",
+                str(output_dir),
+                "-p",
+                "fm.plyr",
+                "--no-cache",
+            ],
+            capture_output=True,
+            text=True,
+            timeout=120,
+        )
+        assert result.returncode == 0, (
+            f"generation failed: {result.stdout}{result.stderr}"
+        )
+
+        # find the generated file
+        py_files = list(output_dir.glob("*.py"))
+        assert len(py_files) == 1, f"expected 1 file, got {py_files}"
+
+        # read and validate the generated code
+        content = py_files[0].read_text()
+
+        # should have pydantic imports
+        assert "from pydantic import BaseModel" in content
+
+        # should have fm.plyr models (check for common ones)
+        assert "class FmPlyr" in content
+
+        # compile the generated code to check for syntax errors
+        compile(content, py_files[0].name, "exec")
