@@ -40,6 +40,7 @@ jobs:
       - name: Test
         if: matrix.target == 'x86_64'
         run: |
+          unset RUSTC_WRAPPER
           uv sync
           uv run pytest -v
 
@@ -67,7 +68,9 @@ jobs:
       - name: Install uv
         uses: astral-sh/setup-uv@v7
       - name: Test
+        shell: pwsh
         run: |
+          $env:RUSTC_WRAPPER = $null
           uv sync
           uv run pytest -v
 
@@ -100,6 +103,7 @@ jobs:
         uses: astral-sh/setup-uv@v7
       - name: Test
         run: |
+          unset RUSTC_WRAPPER
           uv sync
           uv run pytest -v
 
