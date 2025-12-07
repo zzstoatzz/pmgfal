@@ -26,7 +26,7 @@ _RED = "\033[31m"
 # git provider templates (tried in order)
 GIT_PROVIDERS = [
     ("github", "https://github.com/{}.git"),
-    ("tangled", "https://tangled.sh/{}.git"),
+    ("tangled", "https://tangled.org/{}.git"),
 ]
 
 

@@ -6,6 +6,8 @@ from pathlib import Path
 
 import pytest
 
+pytestmark = pytest.mark.integration
+
 # repos known to exist on each provider with lexicons
 GIT_PROVIDER_REPOS = [
     pytest.param(
@@ -16,11 +18,14 @@ GIT_PROVIDER_REPOS = [
         "bluesky-social/atproto",
         id="github-shorthand",
     ),
-    # tangled repos can be added here when available
-    # pytest.param(
-    #     "https://tangled.sh/someone/lexicons.git",
-    #     id="tangled-full-url",
-    # ),
+    pytest.param(
+        "https://tangled.org/zzstoatzz.io/plyr.fm.git",
+        id="tangled-full-url",
+    ),
+    pytest.param(
+        "zzstoatzz.io/plyr.fm",
+        id="tangled-shorthand",
+    ),
 ]
 
 
@@ -54,7 +59,7 @@ def test_shorthand_fallback_on_nonexistent() -> None:
         ],
         capture_output=True,
         text=True,
-        timeout=60,
+        timeout=120,
     )
     assert result.returncode == 1
     output = result.stdout + result.stderr
