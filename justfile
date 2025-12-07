@@ -20,6 +20,10 @@ fmt:
     uv run ruff check --fix .
     uv run ruff format .
 
+# benchmark on atproto lexicons
+bench: dev
+    uv run python bench.py
+
 # clean build artifacts
 clean:
     rm -rf target dist *.egg-info

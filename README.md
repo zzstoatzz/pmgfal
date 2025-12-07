@@ -86,7 +86,7 @@ uvx pmgfal ./lexicons -o ./src/models -p fm.plyr
 ### 3. use in your code
 
 ```python
-from src.models.models import FmPlyrTrack, FmPlyrLike
+from your_project.models import FmPlyrTrack, FmPlyrLike
 
 track = FmPlyrTrack(
     uri="at://did:plc:xyz/fm.plyr.track/123",
@@ -97,13 +97,38 @@ track = FmPlyrTrack(
 
 ### 4. regenerate when lexicons change
 
-add to your build/ci:
+**option a: pre-commit hook**
 
-```bash
-uvx pmgfal ./lexicons -o ./src/models -p fm.plyr
+```yaml
+# .pre-commit-config.yaml
+repos:
+  - repo: local
+    hooks:
+      - id: pmgfal
+        name: generate atproto models
+        entry: uvx pmgfal ./lexicons -o ./src/models -p fm.plyr
+        language: system
+        files: ^lexicons/.*\.json$
+        pass_filenames: false
 ```
 
-caching ensures this is fast when lexicons haven't changed.
+**option b: justfile**
+
+```just
+# justfile
+generate:
+    uvx pmgfal ./lexicons -o ./src/models -p fm.plyr
+```
+
+**option c: github actions**
+
+```yaml
+# .github/workflows/ci.yml
+- name: generate models
+  run: uvx pmgfal ./lexicons -o ./src/models -p fm.plyr
+```
+
+caching ensures regeneration is fast (~0.3s for 300 lexicons) when files haven't changed.
 
 ## external refs
 
