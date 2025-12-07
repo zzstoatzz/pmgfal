@@ -16,7 +16,15 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: "Install uv"
+      - name: Set version from git tag
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          echo "VERSION=$VERSION" >> $GITHUB_ENV
+          sed -i "s/^version = .*/version = \"$VERSION\"/" Cargo.toml
+          echo "Set version to $VERSION"
+          grep "^version" Cargo.toml
+
+      - name: Install uv
         uses: astral-sh/setup-uv@v7
 
       - name: Build

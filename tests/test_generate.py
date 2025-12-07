@@ -159,3 +159,95 @@ class TestGenerate:
             # verify optional field default
             instance2 = TestExample(name="test")
             assert instance2.count is None
+
+    def test_internal_ref_resolution(self):
+        """internal refs like #subDef should resolve to class names."""
+        from pmgfal import generate
+
+        lexicon = {
+            "lexicon": 1,
+            "id": "fm.plyr.track",
+            "defs": {
+                "main": {
+                    "type": "record",
+                    "record": {
+                        "type": "object",
+                        "properties": {
+                            "title": {"type": "string"},
+                            "features": {
+                                "type": "array",
+                                "items": {"type": "ref", "ref": "#featuredArtist"},
+                            },
+                        },
+                        "required": ["title"],
+                    },
+                },
+                "featuredArtist": {
+                    "type": "object",
+                    "properties": {
+                        "did": {"type": "string"},
+                        "handle": {"type": "string"},
+                    },
+                    "required": ["did", "handle"],
+                },
+            },
+        }
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            lexicon_dir = Path(tmpdir) / "lexicons"
+            lexicon_dir.mkdir()
+            (lexicon_dir / "track.json").write_text(json.dumps(lexicon))
+
+            output_dir = Path(tmpdir) / "generated"
+            files = generate(str(lexicon_dir), str(output_dir))
+
+            content = Path(files[0]).read_text()
+
+            # internal ref should resolve to class name, not dict
+            assert "list[FmPlyrTrackFeaturedArtist]" in content
+            assert "dict[str, Any]" not in content or "features" not in content
+
+            # the referenced class should be generated
+            assert "class FmPlyrTrackFeaturedArtist(BaseModel):" in content
+
+    def test_external_ref_resolution(self):
+        """external refs should resolve to class names."""
+        from pmgfal import generate
+
+        lexicon = {
+            "lexicon": 1,
+            "id": "fm.plyr.like",
+            "defs": {
+                "main": {
+                    "type": "record",
+                    "record": {
+                        "type": "object",
+                        "properties": {
+                            "subject": {
+                                "type": "ref",
+                                "ref": "com.atproto.repo.strongRef",
+                            },
+                        },
+                        "required": ["subject"],
+                    },
+                },
+            },
+        }
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            lexicon_dir = Path(tmpdir) / "lexicons"
+            lexicon_dir.mkdir()
+            (lexicon_dir / "like.json").write_text(json.dumps(lexicon))
+
+            output_dir = Path(tmpdir) / "generated"
+            files = generate(str(lexicon_dir), str(output_dir))
+
+            content = Path(files[0]).read_text()
+
+            # external ref should resolve to class name
+            assert "subject: ComAtprotoRepoStrongRef" in content
+
+            # builtin strongRef class should be generated
+            assert "class ComAtprotoRepoStrongRef(BaseModel):" in content
+            assert "uri: str" in content
+            assert "cid: str" in content
