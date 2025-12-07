@@ -3,15 +3,14 @@
 from __future__ import annotations
 
 import argparse
-import hashlib
 import os
 import shutil
 import sys
 from pathlib import Path
 
-from pmgfal._pmgfal import __version__, generate
+from pmgfal._pmgfal import __version__, generate, hash_lexicons
 
-__all__ = ["__version__", "generate", "main", "get_cache_dir"]
+__all__ = ["__version__", "generate", "hash_lexicons", "main", "get_cache_dir"]
 
 
 def get_cache_dir() -> Path:
@@ -23,26 +22,6 @@ def get_cache_dir() -> Path:
     else:
         base = Path(os.environ.get("XDG_CACHE_HOME", Path.home() / ".cache"))
     return base / "pmgfal"
-
-
-def hash_lexicons(lexicon_dir: Path, prefix: str | None = None) -> str:
-    """compute a hash of all lexicon files in a directory."""
-    hasher = hashlib.sha256()
-
-    # include version in hash so cache invalidates on upgrades
-    hasher.update(__version__.encode())
-
-    # include prefix in hash
-    if prefix:
-        hasher.update(prefix.encode())
-
-    # hash all json files in sorted order for determinism
-    json_files = sorted(lexicon_dir.rglob("*.json"))
-    for path in json_files:
-        hasher.update(path.name.encode())
-        hasher.update(path.read_bytes())
-
-    return hasher.hexdigest()[:16]
 
 
 def main(args: list[str] | None = None) -> int:
@@ -99,8 +78,8 @@ def main(args: list[str] | None = None) -> int:
         return 1
 
     try:
-        # compute hash of lexicons
-        lexicon_hash = hash_lexicons(lexicon_dir, parsed.prefix)
+        # compute hash of lexicons (in rust)
+        lexicon_hash = hash_lexicons(str(lexicon_dir), parsed.prefix)
         cache_dir = get_cache_dir() / lexicon_hash
 
         # check cache

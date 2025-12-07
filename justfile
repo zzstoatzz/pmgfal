@@ -1,16 +1,25 @@
-# build rust extension
+# build rust extension in dev mode
+dev:
+    uvx maturin develop
+
+# run tests
+test: dev
+    uv run pytest -v
+
+# build release wheels
 build:
-    uv run maturin develop
+    uvx maturin build --release
 
-# run tests (requires build first)
-test: build
-    uv run pytest
-
-# lint python
+# lint
 lint:
-    uv run ruff check
-    uv run ruff format --check
+    uv run ruff check .
+    uv run ruff format --check .
 
-# format python
+# format
 fmt:
-    uv run ruff format
+    uv run ruff check --fix .
+    uv run ruff format .
+
+# clean build artifacts
+clean:
+    rm -rf target dist *.egg-info
