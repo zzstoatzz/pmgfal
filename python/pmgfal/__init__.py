@@ -70,11 +70,10 @@ def _log_dim(msg: str) -> None:
 
 def get_cache_dir() -> Path:
     """get the user cache directory for pmgfal."""
-    if sys.platform == "darwin":
-        base = Path.home() / "Library" / "Caches"
-    elif sys.platform == "win32":
+    if sys.platform == "win32":
         base = Path(os.environ.get("LOCALAPPDATA", Path.home() / "AppData" / "Local"))
     else:
+        # XDG standard for all unix-like systems (linux, macos, bsd)
         base = Path(os.environ.get("XDG_CACHE_HOME", Path.home() / ".cache"))
     return base / "pmgfal"
 
@@ -162,8 +161,17 @@ def main(args: list[str] | None = None) -> int:
         action="version",
         version=f"%(prog)s {__version__}",
     )
+    parser.add_argument(
+        "--show-cache",
+        action="store_true",
+        help="print cache directory path and exit",
+    )
 
     parsed = parser.parse_args(args)
+
+    if parsed.show_cache:
+        print(get_cache_dir())
+        return 0
 
     temp_dir = None
     try:
