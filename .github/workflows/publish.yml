@@ -122,10 +122,10 @@ jobs:
       - uses: astral-sh/setup-uv@v7
         with:
           enable-cache: true
-      - uses: PyO3/maturin-action@v1
-        with:
-          command: develop
-          args: --release
+      - name: Build and install
+        run: |
+          uv sync
+          uv run maturin develop --release
       - name: Integration tests
         run: uv run pytest -v -m integration
 
