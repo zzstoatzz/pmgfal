@@ -37,12 +37,14 @@ jobs:
       - name: Install uv
         if: matrix.target == 'x86_64'
         uses: astral-sh/setup-uv@v7
-      - name: Test
+        with:
+          enable-cache: true
+      - name: Unit tests
         if: matrix.target == 'x86_64'
         run: |
           unset RUSTC_WRAPPER
           uv sync
-          uv run pytest -v
+          uv run pytest -v -m "not integration"
 
   windows:
     runs-on: windows-latest
@@ -67,12 +69,14 @@ jobs:
           path: dist
       - name: Install uv
         uses: astral-sh/setup-uv@v7
-      - name: Test
+        with:
+          enable-cache: true
+      - name: Unit tests
         shell: pwsh
         run: |
           $env:RUSTC_WRAPPER = $null
           uv sync
-          uv run pytest -v
+          uv run pytest -v -m "not integration"
 
   macos:
     runs-on: ${{ matrix.runner }}
@@ -101,11 +105,29 @@ jobs:
           path: dist
       - name: Install uv
         uses: astral-sh/setup-uv@v7
-      - name: Test
+        with:
+          enable-cache: true
+      - name: Unit tests
         run: |
           unset RUSTC_WRAPPER
           uv sync
-          uv run pytest -v
+          uv run pytest -v -m "not integration"
+
+  integration:
+    name: Integration tests
+    runs-on: ubuntu-latest
+    needs: [linux]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+      - name: Build and install
+        run: |
+          uv sync
+          uv run maturin develop --release
+      - name: Integration tests
+        run: uv run pytest -v -m integration
 
   sdist:
     runs-on: ubuntu-latest

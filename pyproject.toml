@@ -51,6 +51,9 @@ features = ["pyo3/extension-module"]
 [tool.pytest.ini_options]
 pythonpath = ["."]
 testpaths = ["tests"]
+markers = [
+    "integration: marks tests that require network access (clone from git providers)",
+]
 
 [tool.ruff.lint]
 fixable = ["ALL"]

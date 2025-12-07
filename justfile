@@ -2,8 +2,16 @@
 dev:
     uvx maturin develop
 
-# run tests
+# run unit tests only
 test: dev
+    uv run pytest -v -m "not integration"
+
+# run integration tests (requires network)
+test-integration: dev
+    uv run pytest -v -m integration
+
+# run all tests
+test-all: dev
     uv run pytest -v
 
 # build release wheels
